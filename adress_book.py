@@ -1,6 +1,7 @@
 from collections import UserDict
 from datetime import datetime
-from exceptions import ContactNotFoundError, IncorectFormatError, NotFoundDataError
+from exceptions import IncorectFormatError, NotFoundDataError
+from collections import defaultdict
 
 class Field:
     def __init__(self, value):
@@ -32,7 +33,10 @@ class Birthday(Field):
             raise IncorectFormatError('Birthday format must be in DD.MM.YYYY')
 
     def __str__(self):
-        return self.value.strftime("%d.%m.%Y")           
+        return self.value.strftime("%d.%m.%Y")
+
+    def get_date(self):
+        return self.value.date()               
 
 class Record:
     def __init__(self, name):
@@ -54,14 +58,7 @@ class Record:
             return phone
 
     def all_phones(self):
-        return ', '.join(str(phone) for phone in self.phones)      
-
-    def edit_phone(self, existing_phone, new_phone):
-        try:
-            exist_index = self.phones.index(existing_phone)
-            self.phones[exist_index] = Phone(new_phone)
-        except ValueError:
-            print("Unable to find existing phone: " + existing_phone)
+        return ', '.join(str(phone) for phone in self.phones)
 
     def change_phone(self, phone):
         self.phones = [Phone(phone)]        
@@ -83,18 +80,29 @@ class AddressBook(UserDict):
         if name in self.data.keys():
             return self.data[name]
         else:
-            raise ContactNotFoundError
+            raise NotFoundDataError("Contact for entered name does not exist.")
 
     def delete(self, name):
         self.data.pop(name)
 
+    def get_all_contacts(self):
+        contacts = list(self.data.values())
+        if len(contacts) == 0:
+            raise NotFoundDataError("No contacts in adress book")
+        else:
+            return contacts
+
     def get_birthdays_per_week(self):
         today = datetime.today().date()
         grouped_users = defaultdict(list)
+        users_with_birthday = list(filter(lambda user: user.birthday is not None, self.get_all_contacts()))
+
+        if len(users_with_birthday) == 0:
+            raise NotFoundDataError("No birthdays in adress book")
     
-        for user in self.data.values:
+        for user in users_with_birthday:
             name = user.name
-            birthday = user.birthday.date()
+            birthday = user.birthday.get_date()
             birthday_this_year = birthday.replace(year=today.year)
             if birthday_this_year < today:
                 birthday_this_year = birthday_this_year.replace(year=today.year + 1)
@@ -105,7 +113,10 @@ class AddressBook(UserDict):
                     day_name = 'Monday'
                 else:
                     day_name = birthday_this_year.strftime("%A")
-                grouped_users[day_name].append(name)
+                grouped_users[day_name].append(str(name))
 
-        result = '\n'.join([f"{day}: {'\n'.join(names)}" for day, names in grouped_users.items()])
-        return result   
+        if len(grouped_users) == 0:
+            raise NotFoundDataError("No birthdays this week. Money is safe")
+
+        result = '\n'.join([day + ": " + ', '.join(names) for day, names in grouped_users.items()])
+        return result

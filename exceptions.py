@@ -1,6 +1,3 @@
-class ContactNotFoundError(Exception):
-    pass
-
 class NotFoundDataError(Exception):
     pass
 
